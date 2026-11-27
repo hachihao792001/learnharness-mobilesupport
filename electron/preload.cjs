@@ -83,6 +83,20 @@ contextBridge.exposeInMainWorld("lh", {
 			return () => ipcRenderer.removeListener("lh:subscriptions:changed", listener);
 		},
 	},
+	// Fork: Remote Access (docs/UPSTREAM_MODIFICATIONS.md). Ops only; main validates each one.
+	remoteAccess: {
+		status: () => ipcRenderer.invoke("lh:remote-access:control", { op: "status" }),
+		enable: () => ipcRenderer.invoke("lh:remote-access:control", { op: "enable" }),
+		disable: () => ipcRenderer.invoke("lh:remote-access:control", { op: "disable" }),
+		startPairing: () => ipcRenderer.invoke("lh:remote-access:control", { op: "startPairing" }),
+		cancelPairing: () => ipcRenderer.invoke("lh:remote-access:control", { op: "cancelPairing" }),
+		revokeDevice: (deviceId) => ipcRenderer.invoke("lh:remote-access:control", { op: "revokeDevice", deviceId }),
+		onChange: (cb) => {
+			const listener = () => cb();
+			ipcRenderer.on("lh:remote-access:changed", listener);
+			return () => ipcRenderer.removeListener("lh:remote-access:changed", listener);
+		},
+	},
 	expandWindow: () => ipcRenderer.send("lh:expand-window"),
 	setAppearance: (a) => ipcRenderer.send("lh:appearance", a),
 	onZoom: (cb) => {

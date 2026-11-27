@@ -32,6 +32,8 @@ const { createSubscriptions, loadSubscriptionSDK } = require("./subscriptions.cj
 const { attachSubscriptionChild, subscriptionControl } = require("./subscription-ipc.cjs");
 const { desktopAPIHeaders } = require("./desktop-api.cjs");
 const { openWebSubscriptionBrowser } = require("./web-subscription-browser.cjs");
+// Fork: Remote Access (docs/UPSTREAM_MODIFICATIONS.md).
+const { setUpRemoteAccess } = require("./remote-access/setup-remote-access.cjs");
 const { randomBytes } = require("node:crypto");
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -742,6 +744,14 @@ async function main() {
 			app.removeListener("before-quit", cancelStartup);
 		}
 	}
+
+	// Fork: Remote Access (docs/UPSTREAM_MODIFICATIONS.md). Dev mode only
+	// registers the control channel, which then reports "not available".
+	setUpRemoteAccess({
+		electron: require("electron"), devMode: !!devUrl, appURL: url, serverChild: serverProcess,
+		userData: app.getPath("userData"), log,
+		isTrustedSender: (event) => trustedAppWindows.has(BrowserWindow.fromWebContents(event.sender)) && trustedSender(event, new URL(url).origin, BrowserWindow),
+	});
 
 	// Renderer controls contain no token/URL/code operation. The separate server
 	// child is the only recipient of credential leases over inherited IPC.

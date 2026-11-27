@@ -33,7 +33,7 @@ import {
 	type ReactNode,
 	type RefObject,
 } from "react";
-import { BotIcon, KeyIcon, KeyboardIcon, PaletteIcon, PlugIcon, PuzzleIcon, SettingsIcon, WaypointsIcon, type LucideIcon } from "lucide-react";
+import { BotIcon, KeyIcon, KeyboardIcon, PaletteIcon, PlugIcon, PuzzleIcon, SettingsIcon, SmartphoneIcon, WaypointsIcon, type LucideIcon } from "lucide-react";
 import { HostDialog } from "@/components/host-dialog";
 import { useInteractionLayers, type CloseOutcome } from "@/components/interaction-layers";
 import {
@@ -59,6 +59,8 @@ import { PluginSettingsPage } from "./plugin-settings-page.tsx";
 import { usePlugins } from "@/components/plugins";
 import { ChatGPTUIProvider } from "./chatgpt-connection.tsx";
 import { NativeSubscriptionUIProvider } from "./subscription-connections.tsx";
+// Fork: Remote Access (docs/UPSTREAM_MODIFICATIONS.md).
+import { RemoteAccessSection, useRemoteAccessAvailable } from "./remote-access-section.tsx";
 
 /** Owner (2026-09-20): hints earn their place — mechanics-explaining
  *  prose is out; only the keyboard note stays (storage location is a
@@ -71,7 +73,7 @@ const SECTIONS = [
 	{ id: "keyboard", label: "Keyboard", icon: KeyboardIcon, hint: "Stored on this device" },
 	{ id: "general", label: "General", icon: SettingsIcon },
 ] as const;
-type SectionId = (typeof SECTIONS)[number]["id"] | "plugins" | "core-plugins" | `plugin:${string}`;
+type SectionId = (typeof SECTIONS)[number]["id"] | "plugins" | "core-plugins" | `plugin:${string}` | "remote-access";
 
 /** `open(section?, row?)` — the optional ROW deep-links into the Keys
  *  section with that row unfolded (zero-keys wave: the dictation error's
@@ -256,8 +258,10 @@ export function SettingsDialogBody({
 		if (missingPlugin) setActive(management);
 	}, [missingPlugin, management]);
 	const selected = missingPlugin ? management : active;
+	const remoteAccessAvailable = useRemoteAccessAvailable(); // Fork: desktop window only
 	const navSections: { id: SectionId; label: string; icon?: LucideIcon }[] = [
 		...SECTIONS,
+		...(remoteAccessAvailable ? [{ id: "remote-access" as const, label: "Remote Access", icon: SmartphoneIcon }] : []),
 		{ id: "core-plugins", label: "Core plugins", icon: PlugIcon },
 		{ id: "plugins", label: "Community plugins", icon: PuzzleIcon },
 		...enabledPlugins.map(plugin => ({ id: `plugin:${plugin.info.id}` as const, label: plugin.info.manifest?.name ?? plugin.info.id })),
@@ -559,6 +563,11 @@ export function SettingsDialogBody({
 									testid="section-keyboard"
 								>
 									<KeyboardSection />
+								</SettingsSection>
+							)}
+							{active === "remote-access" && (
+								<SettingsSection title="Remote Access" testid="section-remote-access">
+									<RemoteAccessSection />
 								</SettingsSection>
 							)}
 						</div>
