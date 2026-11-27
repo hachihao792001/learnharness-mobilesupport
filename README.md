@@ -81,6 +81,10 @@ Questions, bug reports, and feature requests: [GitHub Issues](https://github.com
 
 Security vulnerabilities: report privately as described in [SECURITY.md](SECURITY.md), not in public issues.
 
+## This fork: phone access
+
+This fork adds private access from your phone over Tailscale, a phone layout and an installable app; see [docs/MOBILE_PWA.md](docs/MOBILE_PWA.md) and [docs/REMOTE_ACCESS_ARCHITECTURE.md](docs/REMOTE_ACCESS_ARCHITECTURE.md). On Windows, double-click `start.bat` to run the development server (`npm run dev`; arguments are passed on, e.g. `start.bat --port 3001`). Upstream syncing: [docs/UPSTREAM_SYNC.md](docs/UPSTREAM_SYNC.md).
+
 ## License
 
 [AGPL-3.0](LICENSE)

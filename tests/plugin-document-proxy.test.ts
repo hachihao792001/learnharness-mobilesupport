@@ -39,8 +39,9 @@ it("Proxy retains API roots, siblings, endpoint lookalikes and all other API rou
 		"/api/plugins/document-one/other/documents/markdown", "/api/plugins/documents/markdown",
 		"/api/graph/import", "/api/events", "/api/chat", "/api/settings/models", "/api/chats/scratch/markdown",
 	]) assert.equal(proxyMatches(path), true, path);
+	// Fork: Remote Access — non-API paths now reach the proxy for the remote gate (local ones pass untouched).
 	for (const path of ["/", "/chat/new", "/apix", "/api-other/plugins/document-one/documents/markdown"]) {
-		assert.equal(proxyMatches(path), false, path);
+		assert.equal(proxyMatches(path), true, path);
 	}
 });
 

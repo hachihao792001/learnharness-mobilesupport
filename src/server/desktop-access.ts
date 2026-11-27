@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { isIP } from "node:net";
+import { remoteAPIRequestAllowed } from "../remote-access/proxy-hooks.ts";
 
 /** Browser-only mode: `next dev` / `next start` without the desktop shell's
  * per-launch secret. */
@@ -58,7 +59,8 @@ export function browserHostAllowed(host: string | null, env: Record<string, stri
  * Proxy's truncated body clone. Check before any route-specific work. */
 export function apiRequestRefusal(request: Request, env: Record<string, string | undefined> = process.env): string | undefined {
 	if (browserOnlyMode(env)) return browserAPIRefusal(request, env);
-	if (!desktopAPIAuthorized(request.headers, env)) return "Desktop API access requires the trusted LearnHarness window.";
+	// Fork: Remote Access (docs/UPSTREAM_MODIFICATIONS.md) — a paired phone via Tailscale Serve.
+	if (!desktopAPIAuthorized(request.headers, env) && !remoteAPIRequestAllowed(request, env)) return "Desktop API access requires the trusted LearnHarness window.";
 }
 
 const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);

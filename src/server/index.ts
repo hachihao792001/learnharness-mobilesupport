@@ -66,3 +66,5 @@ export { claudeCodeInstallationResponse } from "./claude-code.ts";
 // No import side effects; the boot sync lives in stores.ts.
 export * from "./custom-provider.ts";
 export { customProviderGet, customProviderMutation } from "./custom-provider-http.ts";
+// Fork: Remote Access (docs/UPSTREAM_MODIFICATIONS.md).
+export { remoteAccessPairResponse } from "../remote-access/pair-handler.ts";

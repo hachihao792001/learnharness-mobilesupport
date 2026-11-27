@@ -1,8 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Source_Sans_3 } from "next/font/google";
 import { connection } from "next/server";
 import "katex/dist/katex.min.css";
 import "./globals.css";
+// Fork: phone layout (docs/MOBILE_PWA.md, docs/UPSTREAM_MODIFICATIONS.md).
+import "./mobile.css";
+import { MobileShell } from "@/components/mobile/mobile-shell";
+import { MARK_BROWSER_SCRIPT } from "@/components/mobile/browser-mode";
+import { PwaSupport } from "@/components/pwa/pwa-support";
 import { AppShell, SidebarProvider } from "@/components/sidebar";
 import { ActivityProvider } from "@/components/activity-dock";
 import { ServerEventsProvider } from "@/components/server-events";
@@ -19,6 +24,16 @@ const prose = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans3" });
 export const metadata: Metadata = {
 	title: "Learning Harness",
 	description: "A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
+	// Fork: installable PWA (app/manifest.ts adds the manifest link itself).
+	appleWebApp: { capable: true, title: "LearnHarness", statusBarStyle: "black-translucent" },
+	icons: { apple: "/icons/apple-touch-icon.png" },
+};
+
+// Fork: edge-to-edge on phones (safe areas in mobile.css); the keyboard
+// shrinks the layout so the composer stays above it. Ignored by desktop windows.
+export const viewport: Viewport = {
+	width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content",
+	themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#141414" }, { media: "(prefers-color-scheme: light)", color: "#ffffff" }],
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +50,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 			style={vars as React.CSSProperties}
 			suppressHydrationWarning
 		>
+			{/* Fork: marks a browser (never the Electron window) before first paint, for mobile.css. */}
+			<head><script dangerouslySetInnerHTML={{ __html: MARK_BROWSER_SCRIPT }} /></head>
 			<body className="min-h-dvh antialiased">
 			{/* The notification channel rides OUTSIDE everything: sidebar, dock,
 				 and pages all subscribe as the polls retire (push S3, 2026-10-02). */}
@@ -43,7 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 					<AppearanceProvider initialAppearance={appearance} initialTheme={theme}>
 						<SidebarProvider>
 							<ActivityProvider>
-								<AppShell>{children}</AppShell>
+								<AppShell>{children}<MobileShell /><PwaSupport /></AppShell>
 							</ActivityProvider>
 						</SidebarProvider>
 					</AppearanceProvider>

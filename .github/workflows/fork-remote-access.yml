@@ -1,0 +1,81 @@
+# Fork: Remote Access, phone layout and PWA checks (docs/UPSTREAM_SYNC.md).
+# A separate file so upstream changes to ci.yml never conflict with it.
+# ci.yml still runs the full suite, lint and the standalone builds.
+name: Fork remote access & mobile
+
+on:
+  push:
+    branches: [main, "feature/**", upstream-sync]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-remote-access-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  fork-tests:
+    name: Fork tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run plugins:setup
+      - run: npm run typecheck
+      # Node expands the globs itself (the npm script's list is too long for Windows).
+      # On Windows one UPSTREAM test is left out by name: it compares a Windows path
+      # with a "/fixture/..." string and failed there before any fork change
+      # (docs/BASELINE_TEST_RESULTS.md); upstream's ci.yml never runs it on Windows.
+      - name: Fork tests and the upstream tests the fork changed
+        env:
+          NODE_ENV: test
+        run: |
+          SKIP=()
+          if [ "$RUNNER_OS" = "Windows" ]; then SKIP=(--test-skip-pattern "constructs light native chrome before renderer reporting"); fi
+          node --import tsx --test "${SKIP[@]}" \
+            "tests/remote-access-*.test.ts" tests/mobile-support.test.tsx tests/pwa.test.ts tests/upstream-audit.test.ts \
+            tests/desktop-api.test.ts tests/desktop-platform.test.ts tests/file-path-preload.test.ts \
+            tests/plugin-document-proxy.test.ts tests/browser-api-access.test.ts tests/desktop-dev-startup.test.ts
+
+  mobile-smoke:
+    name: Phone layout in real Chrome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run plugins:setup
+      - run: npm run build
+      - run: node scripts/build-server.mjs
+      - run: node scripts/fork/smoke-mobile.mjs --out mobile-screenshots
+        env:
+          # On failure, also print the app server's own log.
+          SMOKE_MOBILE_SERVER_LOG: "1"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mobile-screenshots
+          path: mobile-screenshots
+          if-no-files-found: ignore
