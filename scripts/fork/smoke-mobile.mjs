@@ -317,12 +317,17 @@ async function main() {
 		const phonePage = await phoneDevice.newPage();
 		await phonePage.setUserAgent(PHONE_AGENT);
 		await phonePage.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+		phonePage.setDefaultTimeout(30000);
+		phonePage.setDefaultNavigationTimeout(30000);
 		await phonePage.goto(`${origin}/chat/${chatId}`, { waitUntil: "networkidle2" });
-		await phonePage.evaluate(() => navigator.serviceWorker.ready);
-		await phonePage.reload({ waitUntil: "networkidle2" });
+		await within(20000, phonePage.evaluate(() => navigator.serviceWorker.ready.then(() => true)), "service worker ready").catch(() => false);
+		await within(40000, phonePage.reload({ waitUntil: "networkidle2" }), "reload").catch(() => {});
 		const controlled = await phonePage.evaluate(() => !!navigator.serviceWorker.controller);
-		server.kill();
-		await new Promise((resolve) => server.once("exit", resolve));
+		// Like a computer that sleeps or loses power: on Linux a plain SIGTERM lets Next
+		// wait for the open events stream, which never ends, so the server never exits.
+		const exited = new Promise((resolve) => server.once("exit", resolve));
+		server.kill("SIGKILL");
+		await within(15000, exited, "server stop").catch((error) => console.log(`  (${error.message})`));
 		await phonePage.goto(`${origin}/chat/${chatId}`, { waitUntil: "domcontentloaded" }).catch(() => {});
 		check(controlled && (await phonePage.evaluate(() => document.body.innerText)).includes("Can't reach your computer"), "with the computer unreachable, pages show the offline page");
 		await phonePage.screenshot({ path: path.join(outDir, "offline-390x844.png") });
