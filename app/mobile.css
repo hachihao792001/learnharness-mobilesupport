@@ -1,0 +1,177 @@
+/* Fork: phone layout (docs/MOBILE_PWA.md). Plain CSS, kept out of
+   globals.css so upstream merges never conflict here.
+
+   Every layout rule is inside the 767px media query AND under html.lh-browser,
+   which a tiny <head> script sets before first paint in any browser but never
+   in the Electron window. So the desktop app looks exactly as upstream, at
+   any window size. */
+
+@media (max-width: 767px) {
+	html.lh-browser {
+		--lh-mobile-nav-height: calc(3.5rem + env(safe-area-inset-bottom));
+	}
+	/* While the keyboard is up the bottom bar hides, and its space goes back. */
+	html.lh-browser.lh-keyboard-open {
+		--lh-mobile-nav-height: 0px;
+	}
+
+	/* Page roots (home, chat, new session, plugin views and the app frame)
+	   use h-dvh; leave room for the bottom bar. */
+	html.lh-browser .h-dvh {
+		height: calc(100dvh - var(--lh-mobile-nav-height));
+	}
+
+	/* The sessions sidebar becomes a drawer over the page. */
+	html.lh-browser aside.sidebar-motion {
+		position: fixed;
+		top: 0;
+		bottom: var(--lh-mobile-nav-height);
+		left: 0;
+		z-index: 45;
+	}
+	html.lh-browser aside.sidebar-motion[aria-hidden="false"] {
+		width: min(18rem, 85vw);
+		box-shadow: 0 0 2rem rgb(0 0 0 / 0.35);
+	}
+	html.lh-browser aside.sidebar-motion > div {
+		width: min(18rem, 85vw);
+		padding-top: env(safe-area-inset-top);
+	}
+
+	/* Settings: full screen, section list as a scrolling row on top. */
+	html.lh-browser [data-testid="settings-dialog"] {
+		width: 100vw;
+		max-width: 100vw;
+		height: 100dvh;
+		max-height: 100dvh;
+		border-radius: 0;
+		border: 0;
+		padding-top: env(safe-area-inset-top);
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	html.lh-browser [data-testid="settings-dialog"] > div:last-child {
+		flex-direction: column;
+	}
+	html.lh-browser [data-testid="settings-nav"] {
+		width: auto;
+		flex-direction: row;
+		overflow-x: auto;
+		overflow-y: hidden;
+		border-right: 0;
+		border-bottom: 1px solid var(--border);
+	}
+	html.lh-browser [data-testid="settings-nav"] hr {
+		display: none;
+	}
+	html.lh-browser [data-testid="settings-nav"] button {
+		white-space: nowrap;
+		min-height: 2.75rem;
+	}
+
+	/* Menus and pickers sized for desktop: never wider than the screen. */
+	html.lh-browser .w-\[22rem\] {
+		width: min(22rem, calc(100vw - 1rem));
+	}
+	html.lh-browser .w-80 {
+		width: min(20rem, calc(100vw - 1rem));
+	}
+
+	/* iOS zooms into any field under 16px when it gets focus. */
+	html.lh-browser input,
+	html.lh-browser textarea,
+	html.lh-browser select,
+	html.lh-browser [role="textbox"] {
+		font-size: max(16px, 1em);
+	}
+
+	/* Long transcripts: code blocks and tables scroll sideways inside
+	   themselves instead of widening the page. */
+	html.lh-browser pre,
+	html.lh-browser table {
+		max-width: 100%;
+	}
+	html.lh-browser main {
+		overflow-x: clip;
+	}
+
+	/* Fork-owned phone chrome. */
+	.lh-mobile-bottom-nav {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 46;
+		display: flex;
+		height: var(--lh-mobile-nav-height);
+		padding-bottom: env(safe-area-inset-bottom);
+		border-top: 1px solid var(--border);
+		background: var(--background);
+	}
+	html.lh-keyboard-open .lh-mobile-bottom-nav {
+		display: none;
+	}
+	.lh-mobile-tab {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.15rem;
+		min-height: 3rem;
+		font-size: 11px;
+		color: var(--muted-foreground);
+	}
+	.lh-mobile-tab-active {
+		color: var(--foreground);
+	}
+	.lh-mobile-backdrop {
+		position: fixed;
+		inset: 0;
+		bottom: var(--lh-mobile-nav-height);
+		z-index: 44;
+		background: rgb(0 0 0 / 0.4);
+	}
+	.lh-mobile-sheet {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: var(--lh-mobile-nav-height);
+		z-index: 45;
+		display: flex;
+		flex-direction: column;
+		max-height: calc(85dvh - var(--lh-mobile-nav-height));
+		border-top: 1px solid var(--border);
+		border-radius: 0.75rem 0.75rem 0 0;
+		background: var(--card);
+		box-shadow: 0 -0.5rem 2rem rgb(0 0 0 / 0.3);
+	}
+}
+
+/* Notices (restored draft, offline, update) show on any remote browser width,
+   at the top: at the bottom they would cover the composer the user is about to tap. */
+.lh-remote-notice {
+	position: fixed;
+	left: 50%;
+	top: calc(env(safe-area-inset-top) + 0.75rem);
+	z-index: 60;
+	transform: translateX(-50%);
+	width: max-content;
+	max-width: calc(100vw - 2rem);
+	padding: 0.6rem 0.9rem;
+	border: 1px solid var(--border);
+	border-radius: 0.5rem;
+	background: var(--card);
+	color: var(--foreground);
+	font-size: 12.5px;
+	box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 0.25);
+}
+
+/* Touch screens: a held finger opens our context menu, not the iOS callout. */
+@media (pointer: coarse) {
+	html.lh-browser aside.sidebar-motion,
+	html.lh-browser canvas {
+		-webkit-touch-callout: none;
+		-webkit-user-select: none;
+		user-select: none;
+	}
+}

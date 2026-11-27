@@ -54,7 +54,21 @@ Problems found and fixed during verification:
 - Two more upstream assertions said pages are not proxied (`desktop-api`, `plugin-document-proxy`). They were updated as reviewed matcher changes (see UPSTREAM_MODIFICATIONS.md).
 - A missing `Host` (only in tests) now falls back to the URL host, like upstream's `subscriptionRequestOrigin`.
 
+## Phase 3 — Responsive frontend ✅ (branch `feature/mobile-pwa`)
+- New: `app/mobile.css`, `components/mobile/*` (shell, bottom bar, sheet, long press, graph node list, phone images, drafts, notices, reconnect hook), `scripts/fork/seed-mobile-fixture.ts`, `scripts/fork/smoke-mobile.mjs`, `tests/mobile-support.test.tsx`.
+- Hooks: `app/layout.tsx`, `components/chat.tsx`, `components/composer.tsx` (see UPSTREAM_MODIFICATIONS.md).
+- Verification:
+  - `mobile-support` 15/15;
+  - full suite 5592 tests: 5518 pass, 63 fail = the 62 baseline failures + 1 transient Windows `EPERM` on a temp-folder rename in `core-plugin-build`, which passed 5/5 when rerun alone and has no fork code in its path;
+  - typecheck clean; lint shows only the existing warning; build and build-server pass.
+- **smoke-mobile in real Chrome: 83/83 checks** at 360×800, 390×844, 412×915, 768×1024 and 1280×800, plus the Electron agent at 360px.
+- Bugs found by the real-browser run and fixed:
+  1. The bottom bar hid whenever the composer had focus, and the chat focuses it on load. It now needs a real keyboard: focus plus a shrunken visible height.
+  2. The "draft restored" notice sat over the composer and swallowed the first tap. Notices now show at the top.
+
 ## Remaining issues / risks
 - **Real-machine check pending owner approval.** It covers what Host / X-Forwarded-* / identity headers Serve 1.104.5 really sends, enable/disable on the real tailnet, and pairing a browser through the ts.net URL. It runs with an isolated profile (`--user-data-dir`), because this PC also has a real LearnHarness install.
 - **Stale Serve entry after a crash** until the next launch (documented in the security doc).
+- **Settings on the phone still shows desktop-only controls** (provider keys, subscriptions, prompt editing). Saving them is refused server-side with "Only available on the desktop app."; it is safe but clumsy. Follow-up: hide those sections in a remote browser.
+- Phone attachments are images only; PDFs and other files still need the desktop.
 - `npm test` cannot run on Windows as written (POSIX env prefix, command-line length). Tests run with `node --import tsx --test "<glob>"`.

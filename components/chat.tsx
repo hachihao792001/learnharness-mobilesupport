@@ -126,6 +126,10 @@ import {
 } from "@/src/core";
 import { ReadingThinkingField } from "@/components/reading-thinking";
 import { currentUserThinkingOpen, setAllUserThinkingOpen } from "@/components/thinking-block";
+// Fork: phone support, remote browsers only (docs/UPSTREAM_MODIFICATIONS.md).
+import { useRemoteComposerDraft } from "@/components/mobile/use-remote-composer-draft";
+import { useRemoteStreamRecovery } from "@/components/mobile/use-remote-stream-recovery";
+import { clearPickedImages, pickedImagesForChat, useImageTargetChat } from "@/components/mobile/remote-images";
 
 /**
  * Width tokens (wave-5 reskin, owner decision): the teaching PROSE spans the
@@ -695,6 +699,8 @@ export function Chat({
 	const recordComposerText = useCallback((v: string) => {
 		textRef.current = v; composerEditRevision.current++;
 	}, []);
+	useRemoteComposerDraft(chatId, textRef, applyText); // Fork: remote browsers only
+	useImageTargetChat(chatId); // Fork: phone image attachments
 	// Saved slot completeness is live, but the session's selected route
 	// comes from its own ordinary model control, never today's Strong pin.
 	const { catalog, configured, zeroKeys } = useModelSetup(initialConfigured);
@@ -816,12 +822,12 @@ export function Chat({
 		if (!busyRef.current && zeroKeys) { setSetupOpen(true); return Promise.resolve(false); }
 		if (!busyRef.current && selectedModelUnavailable(catalog, selectedModel)) { openModelPicker(); return Promise.resolve(false); }
 		let captured = "", capturedRevision = 0;
-		return runSubmission(target, () => { capturedRevision = composerEditRevision.current; return { type: "text", content: { text: captured = supplied ?? textRef.current.trim(), images: [] } }; }, () => submissionLive.current.ready && !pendingQuestionOf(submissionLive.current.nativeMessages) && !pendingPluginQuestionOf(submissionLive.current.nativeMessages) && !activeProblemOf(submissionLive.current.nativeMessages), async (prepared, attempt) => {
+		return runSubmission(target, () => { capturedRevision = composerEditRevision.current; return { type: "text", content: { text: captured = supplied ?? textRef.current.trim(), images: pickedImagesForChat(chatId) /* Fork: phone images, else [] */ } }; }, () => submissionLive.current.ready && !pendingQuestionOf(submissionLive.current.nativeMessages) && !pendingPluginQuestionOf(submissionLive.current.nativeMessages) && !activeProblemOf(submissionLive.current.nativeMessages), async (prepared, attempt) => {
 			if (prepared.type !== "text") return false;
 			if (!prepared.content.text.trim() && !prepared.content.images.length) throw new Error("Message text or images are required. Your input has been kept.");
 			if (beforePost && !beforePost(captured)) { attempt.cancel(); return false; }
 			draftRef.current = captured;
-			const accepted = () => { if (composerEditRevision.current === capturedRevision && textRef.current.trim() === captured) applyText(""); openingAccepted?.(); attempt.accepted(); };
+			const accepted = () => { if (composerEditRevision.current === capturedRevision && textRef.current.trim() === captured) applyText(""); clearPickedImages(chatId) /* Fork */; openingAccepted?.(); attempt.accepted(); };
 			attempt.deliver();
 			if (busyRef.current) return steer(prepared.content.text, prepared.content.images, accepted, attempt.refused);
 			return send({ type: "text", text: prepared.content.text, ...(prepared.content.images.length ? { images: prepared.content.images.map(image => ({ ...image })) } : {}) }, accepted, undefined, attempt.refused);
@@ -1513,6 +1519,8 @@ export function Chat({
 		if (turnInFlightRef.current) return; // already attached
 		attachToRunningTurn();
 	});
+	// Fork: a phone that slept or lost its connection re-attaches to a still-running turn (remote browsers only).
+	useRemoteStreamRecovery(chatId, attachToRunningTurn, () => statusRef.current === "submitted" || statusRef.current === "streaming");
 	useServerEvent("turn-settled", (p) => {
 		if (p.chatId !== chatId) return;
 		if (localStreamRef.current) {
