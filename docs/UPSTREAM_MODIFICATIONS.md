@@ -21,7 +21,7 @@ Search tip: every fork hunk in an upstream file is marked with a `Fork:` comment
 | `tests/file-path-preload.test.ts` | 1 | 1 changed | Same reviewed key list |
 | `tests/plugin-document-proxy.test.ts` | 2 | +1, 1 changed | Matcher now includes non-API paths (assertion updated) |
 | `app/layout.tsx` | 3–4 | +17, 2 changed | Phone stylesheet, viewport + theme colour, pre-paint browser mark, `MobileShell` and `PwaSupport` mounts, Apple web-app metadata |
-| `README.md` | 7 | +4 | Short "This fork" section (links, `start.bat`) |
+| `README.md` | 7 | +7 | "Use at your own risk" warning at the top; short "This fork" section (links, `start.bat`). Conflicts only if upstream edits the first or last lines |
 | `components/chat.tsx` | 3/5 | +8, 2 changed | Remote-only hooks: draft saving, phone images, re-attach after reconnect |
 | `components/composer.tsx` | 3 | +8, 2 changed | Phone image button in a remote browser's session composer |
 

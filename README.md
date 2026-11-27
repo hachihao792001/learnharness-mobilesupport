@@ -1,3 +1,6 @@
+> [!WARNING]
+> **This is an unofficial fork. Use it at your own risk.** The phone-access features it adds (Remote Access over Tailscale, the phone layout and the installable app) were written with an AI coding assistant. I'm a Unity developer, not a web or security expert, so I could not review this code myself. It has automated tests and was tried on one machine, but it may still have bugs or security problems. It is not part of official [LearnHarness](https://github.com/amosblomqvist/learnharness) and its authors do not support it.
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lh_banner_dark.png">
