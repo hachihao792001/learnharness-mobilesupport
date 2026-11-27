@@ -104,8 +104,21 @@ Problems found and fixed during verification:
 | Real Next runtime gate probe (curl, desktop mode) | as expected (Phase 2 table above) |
 | `start.bat` in its own window | serves `/`, the manifest and `sw.js`; stopped cleanly |
 
+## Real-machine check ✅ (approved by the owner, 2026-11-27)
+Setup:
+- The unpacked Windows build (`electron-builder --win --x64 --dir`) was started with `--user-data-dir=D:\tools\lh-e2e\userdata`. The owner's installed LearnHarness and its data were never used.
+- Its desktop window was driven over a local DevTools port, 9447. 9333 belongs to HopToDesk and was left alone.
+- A separate headless Chrome played the phone over `https://company-cpu.tail14bb89.ts.net:8443`.
+
+Results:
+- Header capture on :8444 (foreground serve; `{}` again afterwards); details in REMOTE_ACCESS_SECURITY.md.
+- **All checks passed** after two fixes, listed in the security doc: the absolute pairing redirect, and keeping route caching headers on passed requests.
+- Lifecycle on the real tailnet: enable, verify and self-probe; off then refused (ECONNREFUSED); on again with the old pairing valid; app restart re-pointed the entry at the new port; quit removed it.
+- Final `tailscale serve status`: `{}`.
+
+Observation (upstream, not changed): `/api/events` sends its first bytes with the 25-second ping, so `EventSource` reports "open" after up to 25 s. The direct loopback request behaves the same; events still arrive.
+
 ## Remaining issues / risks
-- **Real-machine check pending owner approval.** It covers what Host / X-Forwarded-* / identity headers Serve 1.104.5 really sends, enable/disable on the real tailnet, and pairing a browser through the ts.net URL. It runs with an isolated profile (`--user-data-dir`), because this PC also has a real LearnHarness install.
 - **Stale Serve entry after a crash** until the next launch (documented in the security doc).
 - **Settings on the phone still shows desktop-only controls** (provider keys, subscriptions, prompt editing). Saving them is refused server-side with "Only available on the desktop app."; it is safe but clumsy. Follow-up: hide those sections in a remote browser.
 - Phone attachments are images only; PDFs and other files still need the desktop.

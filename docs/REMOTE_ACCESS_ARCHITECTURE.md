@@ -12,7 +12,7 @@ Phone ─HTTPS─▶ https://<machine>.<tailnet>.ts.net:8443  (Tailscale Serve, 
                     │
                     ▼
               proxy.ts ──▶ remote request? ──yes──▶ remote gate (src/remote-access/gate.ts)
-                             │ no                          │ allowed → NextResponse.next() (no-store)
+                             │ no                          │ allowed → NextResponse.next() (route headers kept)
                              ▼                             │ refused → 303 pair page / 401 / 403 / 415 / 503
                      upstream behaviour                    ▼
                      (desktop secret on /api)        the normal page or API route

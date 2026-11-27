@@ -88,7 +88,7 @@ Not exposed to the phone at all: Electron debugging, host process control, updat
 A remote chat runs the same agent as a desktop chat. The agent's file tools follow the desktop **file access** setting (unrestricted by default; credential files and `.env*` are always denied). A paired phone therefore can ask the agent to read files on this PC, just as the desktop user can. The phone **cannot change** that setting (`PUT /api/settings/agent` is desktop-only). To limit it, set file access to restricted folders in desktop Settings → Agent.
 
 ## Caching and storage
-- Every remote response gets `Cache-Control: no-store`.
+- The gate's own refusals and redirects get `Cache-Control: no-store`. Responses it lets through keep the route's caching headers: dynamic pages already send `private, no-cache, no-store`, and streams send `no-cache, no-transform`. Overriding them dropped `no-transform`, so gzip buffered SSE; the real-machine check found this.
 - The PWA service worker (Phase 4) caches only versioned static assets (`/_next/static`, fonts, icons). It never caches pages, `/api`, streams, images or anything private.
 - Remote composer drafts are kept in the phone's `localStorage` (Phase 3), on the phone only.
 
@@ -112,6 +112,29 @@ A remote chat runs the same agent as a desktop chat. The agent's file tools foll
 
 It also runs one full pairing round trip over the real IPC protocol, against the real Electron-side manager.
 
-## Not yet verified (needs the real machine)
-- **What headers Serve actually sends.** The design assumes Serve keeps the browser's `Host` and adds a non-loopback `X-Forwarded-For`, so a **tagged** device (which gets no identity header) is still classified remote and refused. If Serve rewrote `Host` to loopback *and* sent no forwarded header, a tagged device's page request would be treated as local. The real-machine check (see the implementation status doc) must confirm this before relying on it with tagged devices on the tailnet.
-- `Tailscale-User-Login` values with non-ASCII characters may be RFC 2047 encoded. They are compared as-is, so an encoded owner login would be refused (fails closed).
+## Verified on the real machine (Tailscale 1.104.5, 2026-11-27)
+A one-minute foreground `tailscale serve --https=8444` to a header echo server recorded exactly what Serve forwards:
+- `Host: company-cpu.tail14bb89.ts.net:8444`: the browser's host is **kept**.
+- `X-Forwarded-For: 100.66.94.38`, the real tailnet client address. A client-sent `X-Forwarded-For: 6.6.6.6` was **replaced**. `X-Forwarded-Host` and `X-Forwarded-Proto: https` are also set.
+- `Tailscale-User-Login: hachihao792001@gmail.com`. A client-sent forged login was **stripped and replaced**. `Tailscale-User-Name` is RFC 2047-encoded (`=?utf-8?q?...?=`); the login is plain ASCII, which is what the gate compares. Serve also adds `Tailscale-Headers-Info`.
+- The backend's socket address is `127.0.0.1` (tailscaled connects on loopback).
+
+So a **tagged** device, which gets no identity header, still arrives with a non-loopback `Host` and `X-Forwarded-For`. It is classified remote and refused for missing identity.
+
+The full check against the packaged app, on an isolated profile, passed on the real tailnet:
+- pairing, including refusal of a missing code and of a wrong code;
+- phone layout, HttpOnly/Secure/SameSite=Strict cookie;
+- learning APIs 200, desktop-only APIs 403, `text/plain` write 415;
+- cross-origin POST with a valid cookie 403;
+- a local program faking every Serve header on the loopback port, without a pairing, 401;
+- upstream's local 403 unchanged;
+- SSE and turn streams work through Serve, uncompressed;
+- service worker on the real HTTPS origin;
+- off → the address refuses connections; on again → the old pairing still works;
+- restart → the entry is re-pointed at the new port; quit → `serve status` is `{}`.
+
+Two bugs found only by this check, now fixed with regression tests:
+1. A relative `Location` on the pairing redirect made Next's proxy fail with a 500.
+2. The gate's `Cache-Control: no-store` replaced the streams' `no-cache, no-transform`, so gzip could buffer SSE.
+
+Still true: a login with non-ASCII characters could arrive RFC 2047-encoded and would then be refused (fails closed).
