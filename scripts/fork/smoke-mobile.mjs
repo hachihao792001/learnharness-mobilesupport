@@ -165,6 +165,8 @@ async function main() {
 					hasPre: !!document.querySelector("main pre"),
 					hasTable: !!document.querySelector("main table"),
 					imageButton: !!document.querySelector("[data-testid='remote-image-attach']"),
+					rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
+					navHeight: nav ? Math.round(nav.getBoundingClientRect().height) : 0,
 					innerWidth: window.innerWidth,
 					innerHeight: window.innerHeight,
 				};
@@ -177,6 +179,8 @@ async function main() {
 			check(layout.hasPre && layout.hasTable, "code block and table rendered");
 			check(layout.blocksOffScreen === 0, `wide code blocks and tables scroll inside the screen (${layout.blocksOffScreen} cut off)`);
 			check(layout.imageButton, "phone image button shown (remote browser on a chat page)");
+			check(layout.rootFontSize === (phone ? 12.8 : 16), `${phone ? "phone layout at 80% size" : "full size"} (root ${layout.rootFontSize}px)`);
+			if (phone) check(layout.navHeight === 56, `bottom bar keeps full-size tap targets (${layout.navHeight}px)`);
 			await page.screenshot({ path: path.join(outDir, `chat-${viewport.width}x${viewport.height}.png`) });
 			if (viewport.width === 390) await checkPwa(page, origin, chatId);
 
@@ -275,8 +279,10 @@ async function main() {
 			nav: !!document.querySelector("[data-testid='mobile-bottom-nav']"),
 			image: !!document.querySelector("[data-testid='remote-image-attach']"),
 			serviceWorkers: (await navigator.serviceWorker?.getRegistrations?.())?.length ?? 0,
+			rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
 		}));
 		check(!electron.marked && !electron.nav && !electron.image, "no mobile layout, no phone features in the Electron window");
+		check(electron.rootFontSize === 16, `the Electron window keeps full size at 360px (root ${electron.rootFontSize}px)`);
 		check(electron.serviceWorkers === 0, "no service worker in the Electron window");
 		await desktopWindow.close();
 

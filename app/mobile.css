@@ -8,12 +8,39 @@
 
 @media (max-width: 767px) {
 	html.lh-browser {
-		--lh-mobile-nav-height: calc(3.5rem + env(safe-area-inset-bottom));
+		/* px, not rem: the bottom bar keeps full-size tap targets at the 80% scale. */
+		--lh-mobile-nav-height: calc(56px + env(safe-area-inset-bottom));
 	}
 	/* While the keyboard is up the bottom bar hides, and its space goes back. */
 	html.lh-browser.lh-keyboard-open {
 		--lh-mobile-nav-height: 0px;
 	}
+
+	/* Everything at 80%, like the 80% browser zoom the owner tested on a
+	   phone. Not CSS `zoom`: that scales measured coordinates too, which put
+	   graph taps and menus 20% off. Spacing and boxes are rem-based, so the
+	   root font size scales them; text sizes are fixed px, so each one is
+	   overridden. Everything stays in real CSS pixels. */
+	html.lh-browser {
+		--lh-mobile-scale: 0.8;
+		font-size: 80%;
+		/* The reading size is set inline on <html> by Appearance; scale a copy on <body>. */
+		--lh-prose-size-unscaled: var(--lh-prose-size);
+	}
+	html.lh-browser body {
+		--lh-prose-size: calc(var(--lh-prose-size-unscaled) * var(--lh-mobile-scale));
+	}
+	html.lh-browser .text-xs { font-size: calc(11px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-sm { font-size: calc(12.5px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-base { font-size: calc(14px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-lg { font-size: calc(16px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-xl { font-size: calc(20px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-2xl { font-size: calc(25px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-3xl { font-size: calc(32px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-\[10px\] { font-size: calc(10px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-\[11px\] { font-size: calc(11px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-\[13px\] { font-size: calc(13px * var(--lh-mobile-scale)); }
+	html.lh-browser .text-\[15px\] { font-size: calc(15px * var(--lh-mobile-scale)); }
 
 	/* Page roots (home, chat, new session, plugin views and the app frame)
 	   use h-dvh; leave room for the bottom bar. */
@@ -117,7 +144,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.15rem;
-		min-height: 3rem;
+		min-height: 48px;
 		font-size: 11px;
 		color: var(--muted-foreground);
 	}
@@ -211,4 +238,12 @@
 	border: 1px solid var(--border);
 	border-radius: 0.4rem;
 	color: var(--foreground);
+}
+
+@media (max-width: 767px) {
+	/* Full-size icons in the bottom bar, whatever the 80% scale does to rem. */
+	.lh-mobile-tab svg {
+		width: 20px;
+		height: 20px;
+	}
 }
