@@ -34,6 +34,15 @@ const ELECTRON_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/53
 const outArg = process.argv.indexOf("--out");
 const outDir = outArg > 0 ? path.resolve(process.argv[outArg + 1]) : path.join(tmpdir(), `lh-smoke-mobile-${Date.now()}`);
 const failures = [];
+// The script must never hang a CI job: each step is named, and a watchdog
+// fails the run with that name if the whole smoke takes too long.
+let currentStep = "start";
+const step = (name) => { currentStep = name; };
+const WATCHDOG_MS = 12 * 60 * 1000;
+setTimeout(() => {
+	console.error(`\nsmoke-mobile: stuck for ${WATCHDOG_MS / 60000} minutes at step "${currentStep}"`);
+	process.exit(1);
+}, WATCHDOG_MS).unref();
 const check = (ok, message) => { console.log(`${ok ? "  ok  " : "  FAIL"} ${message}`); if (!ok) failures.push(message); };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -72,8 +81,14 @@ async function waitForServer(url) {
 }
 
 /** PWA in real Chrome: manifest, service worker, offline banner and page, and what got cached. */
+/** A Node-side limit: a stalled page or protocol call fails the check instead of hanging the job. */
+function within(ms, promise, label) {
+	return Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms / 1000}s: ${label}`)), ms))]);
+}
+
 async function checkPwa(page, origin, chatId) {
 	console.log("  -- PWA");
+	step("PWA: manifest");
 	const manifest = await page.evaluate(async () => {
 		const link = document.querySelector("link[rel='manifest']");
 		if (!link) return null;
@@ -81,13 +96,16 @@ async function checkPwa(page, origin, chatId) {
 		return { status: response.status, body: await response.json() };
 	});
 	check(manifest?.status === 200 && manifest.body.display === "standalone", "manifest is linked and served (standalone)");
-	const active = await page.evaluate(() => Promise.race([
+	step("PWA: service worker ready");
+	const active = await within(20000, page.evaluate(() => Promise.race([
 		navigator.serviceWorker.ready.then((registration) => !!registration.active),
 		new Promise((resolve) => setTimeout(() => resolve(false), 8000)),
-	]));
+	])), "service worker ready").catch((error) => { console.log(`  (${error.message})`); return false; });
 	check(active, "service worker is active");
-	await page.reload({ waitUntil: "networkidle2" });
-	check(await page.evaluate(() => !!navigator.serviceWorker.controller), "service worker controls the page after reload");
+	step("PWA: reload under the service worker");
+	await within(40000, page.reload({ waitUntil: "networkidle2" }), "reload").catch((error) => console.log(`  (${error.message})`));
+	check(await within(10000, page.evaluate(() => !!navigator.serviceWorker.controller), "controller").catch(() => false), "service worker controls the page after reload");
+	step("PWA: offline banner");
 
 	await page.setOfflineMode(true);
 	await sleep(300);
@@ -130,15 +148,20 @@ async function main() {
 		browser = await puppeteer.launch({
 			executablePath: await chromeExecutable(),
 			headless: true,
+			// A stalled protocol call fails within a minute instead of the default three.
+			protocolTimeout: 60000,
 			args: [`--host-resolver-rules=MAP ${REMOTE_NAME} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${origin}`, "--no-first-run", "--no-default-browser-check"],
 		});
 
 		for (const viewport of VIEWPORTS) {
 			const phone = viewport.width < 768;
 			console.log(`\n${viewport.width}×${viewport.height}${phone ? " (phone layout)" : ""}`);
+			step(`${viewport.width}×${viewport.height}: layout`);
 			// Each size is a separate device: its own storage (drafts), cookies and cache.
 			const device = await browser.createBrowserContext();
 			const page = await device.newPage();
+			page.setDefaultTimeout(30000);
+			page.setDefaultNavigationTimeout(30000);
 			await page.setUserAgent(viewport.width < 1024 ? PHONE_AGENT : (await browser.userAgent()));
 			await page.setViewport({ ...viewport, isMobile: viewport.width < 1024, hasTouch: viewport.width < 1024, deviceScaleFactor: 2 });
 			await page.goto(`${origin}/chat/${chatId}`, { waitUntil: "networkidle2" });
@@ -185,6 +208,7 @@ async function main() {
 			if (viewport.width === 390) await checkPwa(page, origin, chatId);
 
 			if (phone) {
+				step(`${viewport.width}×${viewport.height}: drawer, menus, settings, draft, graph`);
 				await page.click("[data-testid='mobile-tab-learn']");
 				await sleep(350);
 				const drawer = await page.$eval("aside.sidebar-motion", (aside) => ({ open: aside.getAttribute("aria-hidden") === "false", width: aside.getBoundingClientRect().width, position: getComputedStyle(aside).position }));
@@ -267,6 +291,7 @@ async function main() {
 			await device.close();
 		}
 
+		step("Electron window");
 		console.log("\nElectron window at 360×800 (must keep the desktop layout)");
 		const desktopWindow = await browser.newPage();
 		await desktopWindow.setUserAgent(ELECTRON_AGENT);
@@ -286,6 +311,7 @@ async function main() {
 		check(electron.serviceWorkers === 0, "no service worker in the Electron window");
 		await desktopWindow.close();
 
+		step("computer unreachable");
 		console.log("\nComputer unreachable (server stopped), phone at 390×844");
 		const phoneDevice = await browser.createBrowserContext();
 		const phonePage = await phoneDevice.newPage();
