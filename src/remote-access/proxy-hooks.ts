@@ -2,8 +2,8 @@
 // docs/UPSTREAM_MODIFICATIONS.md): one from proxy.ts, one from
 // src/server/desktop-access.ts apiRequestRefusal.
 import { NextResponse, type NextRequest } from "next/server";
-import { checkRemoteRequest, isRemoteRequest, remoteGateActive, REMOTE_GATE_HEADER, type RemoteCheck } from "./gate.ts";
-import { currentRemoteAccessPolicy, loadRemoteAccessPolicy, remoteAccessRequest } from "./policy-store.ts";
+import { checkRemoteRequest, isRemoteRequest, remoteGateActive, remoteOrigin, REMOTE_GATE_HEADER, type RemoteCheck } from "./gate.ts";
+import { currentRemoteAccessPolicy, loadRemoteAccessPolicy, remoteAccessRequest, type RemoteAccessPolicy } from "./policy-store.ts";
 import { isAPIPath } from "./route-policy.ts";
 
 const SEEN_REPORT_INTERVAL_MS = 10 * 60 * 1000;
@@ -27,9 +27,21 @@ function reportDeviceSeen(deviceId: string, now = Date.now()): void {
 	remoteAccessRequest("seen", { deviceId }).catch(() => { /* only a "last seen" time */ });
 }
 
+/** Refusals the gate writes itself: never cached. */
 function markRemoteResponse<T extends Response>(response: T): T {
 	response.headers.set(REMOTE_GATE_HEADER, "gate");
 	response.headers.set("Cache-Control", "no-store");
+	return response;
+}
+
+/**
+ * A request the gate lets through: only the marker. Headers set on
+ * NextResponse.next() REPLACE the route's own, so setting Cache-Control here
+ * dropped the streams' "no-cache, no-transform", and gzip then buffered SSE.
+ * Routes keep their caching headers (dynamic pages are already private/no-store).
+ */
+function markPassedResponse<T extends Response>(response: T): T {
+	response.headers.set(REMOTE_GATE_HEADER, "gate");
 	return response;
 }
 
@@ -43,13 +55,16 @@ function escapeHTML(text: string): string {
 	return text.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
 }
 
-function refusalResponse(request: NextRequest, check: Extract<RemoteCheck, { allowed: false }>): NextResponse {
+function refusalResponse(request: NextRequest, check: Extract<RemoteCheck, { allowed: false }>, policy: RemoteAccessPolicy | null): NextResponse {
 	const api = isAPIPath(request.nextUrl.pathname);
 	if (check.kind === "pairing") {
-		if (!api && request.method === "GET") {
-			const target = new URL("/remote/pair", request.nextUrl);
+		// A pairing refusal comes after the host check, so the policy is on and its
+		// origin is the exact address the phone used. Next's proxy needs an
+		// absolute Location (a relative one fails with "Invalid URL" there).
+		if (!api && request.method === "GET" && policy?.enabled) {
+			const target = new URL("/remote/pair", remoteOrigin(policy));
 			target.searchParams.set("next", pairingReturnPath(request.nextUrl));
-			return markRemoteResponse(new NextResponse(null, { status: 303, headers: { Location: `${target.pathname}${target.search}` } }));
+			return markRemoteResponse(NextResponse.redirect(target, 303));
 		}
 		return markRemoteResponse(NextResponse.json({ error: check.message, code: "remote-pairing-required" }, { status: 401 }));
 	}
@@ -73,7 +88,7 @@ export function remoteAccessProxyResponse(request: NextRequest): NextResponse {
 	const policy = currentRemoteAccessPolicy();
 	if (!policy) void loadRemoteAccessPolicy();
 	const check = checkRemoteRequest(request, policy);
-	if (!check.allowed) return refusalResponse(request, check);
+	if (!check.allowed) return refusalResponse(request, check, policy);
 	if (check.device) reportDeviceSeen(check.device.id);
-	return markRemoteResponse(NextResponse.next());
+	return markPassedResponse(NextResponse.next());
 }

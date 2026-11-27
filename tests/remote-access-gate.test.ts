@@ -97,7 +97,10 @@ describe("mandatory security cases", () => {
 	it("4. a local program that fakes the exact Serve headers still needs a paired device", async () => {
 		const page = proxy(remote("/chat/abc", { paired: false }));
 		assert.equal(page.status, 303);
-		assert.equal(page.headers.get("location"), "/remote/pair?next=%2Fchat%2Fabc");
+		// Absolute on the exact remote origin: Next's proxy adapter runs new URL() on Location
+		// (a relative one became a 500 "Invalid URL" in the real-machine check).
+		assert.equal(page.headers.get("location"), `${ORIGIN}/remote/pair?next=%2Fchat%2Fabc`);
+		assert.doesNotThrow(() => new URL(page.headers.get("location")!));
 		const api = proxy(remote("/api/chats", { paired: false }));
 		assert.equal(api.status, 401);
 		assert.equal((await api.json()).code, "remote-pairing-required");
@@ -173,11 +176,13 @@ describe("mandatory security cases", () => {
 });
 
 describe("what a paired phone can do", () => {
-	it("opens pages and APIs, marked no-store and with the gate header", () => {
+	it("opens pages and APIs with the gate header, leaving the route's own caching headers alone", () => {
 		for (const path of ["/", "/chat/abc", "/chat/new?mode=practice", "/api/chats", "/api/graph"]) {
 			const response = proxy(remote(path));
 			assert(passes(response), path);
-			assert.equal(response.headers.get("cache-control"), "no-store");
+			// A header set here would replace the route's (SSE needs "no-cache, no-transform"
+			// or gzip buffers it — found in the real-machine check).
+			assert.equal(response.headers.get("cache-control"), null);
 			assert.equal(response.headers.get(REMOTE_GATE_HEADER), "gate");
 		}
 	});
