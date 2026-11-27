@@ -1,0 +1,12 @@
+{
+	"$comment": "Fork: what scripts/fork/upstream-audit.mjs watches in upstream changes. Paths are prefixes or exact files. Files the fork modified are found from git automatically.",
+	"watched": [
+		{ "area": "Electron startup, shutdown, server port and IPC", "paths": ["electron/main.cjs", "electron/preload.cjs", "electron/desktop-api.cjs", "electron/chatgpt-ipc.cjs", "electron-builder.yml"], "tests": ["tests/remote-access-manager.test.ts", "tests/desktop-dev-startup.test.ts", "tests/desktop-platform.test.ts", "tests/file-path-preload.test.ts"] },
+		{ "area": "Authentication and the request gate", "paths": ["proxy.ts", "src/server/desktop-access.ts", "src/server/plugin-transport.ts", "src/server/custom-provider-http.ts"], "tests": ["tests/remote-access-gate.test.ts", "tests/desktop-api.test.ts", "tests/browser-api-access.test.ts", "tests/plugin-document-proxy.test.ts"] },
+		{ "area": "API routes (remote route policy)", "paths": ["app/api/"], "tests": ["tests/remote-access-route-coverage.test.ts", "tests/remote-access-gate.test.ts"] },
+		{ "area": "Chat input, streaming and turn state", "paths": ["src/core/input-events.ts", "src/server/chat-handler.ts", "src/server/turn-runs.ts", "src/server/turn-liveness.ts", "src/server/pi/ui-stream.ts", "app/api/chats/[id]/stream/route.ts", "app/api/jobs/route.ts", "components/session-core.ts", "components/session.ts", "components/server-events.tsx", "src/server/events-stream.ts"], "tests": ["tests/mobile-support.test.tsx", "tests/chat-flow.test.ts", "tests/turn-recovery.test.ts"] },
+		{ "area": "Persistence formats", "paths": ["src/store/", "config.ts"], "tests": ["tests/data-dir-seam.test.ts", "tests/atomic-write.test.ts"] },
+		{ "area": "UI the phone layout hooks into", "paths": ["app/layout.tsx", "app/globals.css", "components/sidebar.tsx", "components/chat.tsx", "components/composer.tsx", "components/attach-files-button.tsx", "components/settings/settings-dialog.tsx", "components/activity-dock.tsx", "components/graph-view.tsx", "components/graph-canvas.ts"], "tests": ["tests/mobile-support.test.tsx", "tests/chat-input-performance.test.tsx", "scripts/fork/smoke-mobile.mjs"] },
+		{ "area": "Build and dependencies", "paths": ["package.json", "package-lock.json", "next.config.ts", "tsconfig.json", "eslint.config.mjs", ".github/workflows/"], "tests": ["npm run typecheck", "npm run lint", "npm run build", "scripts/smoke-server.mjs"] }
+	]
+}

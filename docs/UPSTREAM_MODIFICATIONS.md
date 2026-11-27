@@ -20,7 +20,8 @@ Search tip: every fork hunk in an upstream file is marked with a `Fork:` comment
 | `tests/desktop-platform.test.ts` | 1 | 1 changed | Reviewed preload key list gains `remoteAccess` |
 | `tests/file-path-preload.test.ts` | 1 | 1 changed | Same reviewed key list |
 | `tests/plugin-document-proxy.test.ts` | 2 | +1, 1 changed | Matcher now includes non-API paths (assertion updated) |
-| `app/layout.tsx` | 3 | +10, 2 changed | Phone stylesheet, viewport, pre-paint browser mark, `MobileShell` mount |
+| `app/layout.tsx` | 3–4 | +17, 2 changed | Phone stylesheet, viewport + theme colour, pre-paint browser mark, `MobileShell` and `PwaSupport` mounts, Apple web-app metadata |
+| `README.md` | 7 | +4 | Short "This fork" section (links, `start.bat`) |
 | `components/chat.tsx` | 3/5 | +8, 2 changed | Remote-only hooks: draft saving, phone images, re-attach after reconnect |
 | `components/composer.tsx` | 3 | +8, 2 changed | Phone image button in a remote browser's session composer |
 
@@ -76,7 +77,8 @@ Search tip: every fork hunk in an upstream file is marked with a `Fork:` comment
   - `import "./mobile.css"`;
   - a `viewport` export (`viewportFit: "cover"`, `interactiveWidget: "resizes-content"`);
   - a `<head>` with one inline script (`MARK_BROWSER_SCRIPT`), which adds `lh-browser` to `<html>` in any browser but never in the Electron window;
-  - `<MobileShell />` rendered inside `AppShell` after `{children}`.
+  - `<MobileShell />` and `<PwaSupport />` rendered inside `AppShell` after `{children}`;
+  - in `metadata`, `appleWebApp` and `icons.apple`; in `viewport`, `themeColor` (the manifest link comes from `app/manifest.ts` by itself).
 - **Why:** the phone layout must apply before first paint, and never in the Electron window. A CSS media query alone cannot tell them apart; the user agent can. `MobileShell` must sit inside `AppShell` to reach the sidebar and settings-dialog contexts. The viewport options are ignored by desktop browsers and Electron.
 - **Expected conflicts:** medium if upstream reworks the root layout. Re-add the four pieces.
 
@@ -110,5 +112,10 @@ Search tip: every fork hunk in an upstream file is marked with a `Fork:` comment
 - `components/settings/remote-access-section.tsx`
 - `tests/remote-access-*.test.ts`, `tests/mobile-support.test.tsx`
 - `app/mobile.css`, `components/mobile/*`
-- `scripts/fork/seed-mobile-fixture.ts`, `scripts/fork/smoke-mobile.mjs`
+- `scripts/fork/seed-mobile-fixture.ts`, `scripts/fork/smoke-mobile.mjs`, `scripts/fork/build-pwa-icons.mjs`, `scripts/fork/upstream-audit.mjs`, `scripts/fork/upstream-touchpoints.json`
+- `app/manifest.ts`, `components/pwa/*`, `public/sw.js`, `public/offline.html`, `public/icons/*`
+- `tests/pwa.test.ts`, `tests/upstream-audit.test.ts`
+- `.github/workflows/fork-remote-access.yml` (a separate file, so `ci.yml` stays upstream's)
+- `start.bat`
+- `docs/MOBILE_PWA.md`, `docs/UPSTREAM_SYNC.md`
 - `docs/FORK_ARCHITECTURE.md`, `docs/UPSTREAM_MODIFICATIONS.md`, `docs/BASELINE_TEST_RESULTS.md`, `docs/REMOTE_ACCESS_*.md`

@@ -71,6 +71,41 @@ async function waitForServer(url) {
 	throw new Error(`smoke-mobile: server never answered on ${url}`);
 }
 
+/** PWA in real Chrome: manifest, service worker, offline banner and page, and what got cached. */
+async function checkPwa(page, origin, chatId) {
+	console.log("  -- PWA");
+	const manifest = await page.evaluate(async () => {
+		const link = document.querySelector("link[rel='manifest']");
+		if (!link) return null;
+		const response = await fetch(link.href);
+		return { status: response.status, body: await response.json() };
+	});
+	check(manifest?.status === 200 && manifest.body.display === "standalone", "manifest is linked and served (standalone)");
+	const active = await page.evaluate(() => Promise.race([
+		navigator.serviceWorker.ready.then((registration) => !!registration.active),
+		new Promise((resolve) => setTimeout(() => resolve(false), 8000)),
+	]));
+	check(active, "service worker is active");
+	await page.reload({ waitUntil: "networkidle2" });
+	check(await page.evaluate(() => !!navigator.serviceWorker.controller), "service worker controls the page after reload");
+
+	await page.setOfflineMode(true);
+	await sleep(300);
+	check(!!(await page.$("[data-testid='pwa-offline']")), "offline banner shows when the connection drops");
+	// (Offline emulation covers the page, not the service worker's own fetches:
+	// the offline page is checked at the end by really stopping the server.)
+	await page.setOfflineMode(false);
+	await page.goto(`${origin}/chat/${chatId}`, { waitUntil: "networkidle2" });
+	await page.waitForSelector("[data-testid='composer']");
+
+	const cached = await page.evaluate(async () => {
+		const urls = [];
+		for (const name of await caches.keys()) for (const request of await (await caches.open(name)).keys()) urls.push(new URL(request.url).pathname);
+		return urls;
+	});
+	check(cached.length > 0 && cached.every((pathname) => /^\/(_next\/static|fonts|icons)\/|^\/offline\.html$/.test(pathname)), `only static files are cached (${cached.length} entries, no pages or /api)`);
+}
+
 async function main() {
 	if (!existsSync(standalone)) throw new Error("smoke-mobile: build first (npm run build && node scripts/build-server.mjs).");
 	await mkdir(outDir, { recursive: true });
@@ -143,6 +178,7 @@ async function main() {
 			check(layout.blocksOffScreen === 0, `wide code blocks and tables scroll inside the screen (${layout.blocksOffScreen} cut off)`);
 			check(layout.imageButton, "phone image button shown (remote browser on a chat page)");
 			await page.screenshot({ path: path.join(outDir, `chat-${viewport.width}x${viewport.height}.png`) });
+			if (viewport.width === 390) await checkPwa(page, origin, chatId);
 
 			if (phone) {
 				await page.click("[data-testid='mobile-tab-learn']");
@@ -233,9 +269,32 @@ async function main() {
 		await desktopWindow.setViewport({ width: 360, height: 800 });
 		await desktopWindow.goto(`http://127.0.0.1:${port}/chat/${chatId}`, { waitUntil: "networkidle2" });
 		await desktopWindow.waitForSelector("[data-testid='composer']");
-		const electron = await desktopWindow.evaluate(() => ({ marked: document.documentElement.classList.contains("lh-browser"), nav: !!document.querySelector("[data-testid='mobile-bottom-nav']"), image: !!document.querySelector("[data-testid='remote-image-attach']") }));
+		await sleep(1000);
+		const electron = await desktopWindow.evaluate(async () => ({
+			marked: document.documentElement.classList.contains("lh-browser"),
+			nav: !!document.querySelector("[data-testid='mobile-bottom-nav']"),
+			image: !!document.querySelector("[data-testid='remote-image-attach']"),
+			serviceWorkers: (await navigator.serviceWorker?.getRegistrations?.())?.length ?? 0,
+		}));
 		check(!electron.marked && !electron.nav && !electron.image, "no mobile layout, no phone features in the Electron window");
+		check(electron.serviceWorkers === 0, "no service worker in the Electron window");
 		await desktopWindow.close();
+
+		console.log("\nComputer unreachable (server stopped), phone at 390×844");
+		const phoneDevice = await browser.createBrowserContext();
+		const phonePage = await phoneDevice.newPage();
+		await phonePage.setUserAgent(PHONE_AGENT);
+		await phonePage.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+		await phonePage.goto(`${origin}/chat/${chatId}`, { waitUntil: "networkidle2" });
+		await phonePage.evaluate(() => navigator.serviceWorker.ready);
+		await phonePage.reload({ waitUntil: "networkidle2" });
+		const controlled = await phonePage.evaluate(() => !!navigator.serviceWorker.controller);
+		server.kill();
+		await new Promise((resolve) => server.once("exit", resolve));
+		await phonePage.goto(`${origin}/chat/${chatId}`, { waitUntil: "domcontentloaded" }).catch(() => {});
+		check(controlled && (await phonePage.evaluate(() => document.body.innerText)).includes("Can't reach your computer"), "with the computer unreachable, pages show the offline page");
+		await phonePage.screenshot({ path: path.join(outDir, "offline-390x844.png") });
+		await phoneDevice.close();
 	} finally {
 		await browser?.close().catch(() => {});
 		server.kill();

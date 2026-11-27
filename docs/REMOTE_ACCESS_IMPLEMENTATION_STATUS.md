@@ -66,6 +66,44 @@ Problems found and fixed during verification:
   1. The bottom bar hid whenever the composer had focus, and the chat focuses it on load. It now needs a real keyboard: focus plus a shrunken visible height.
   2. The "draft restored" notice sat over the composer and swallowed the first tap. Notices now show at the top.
 
+## Phase 4 — PWA ✅
+- New:
+  - `app/manifest.ts`, `public/sw.js`, `public/offline.html`;
+  - `public/icons/*`, rendered from `build/icon-flat.svg` by `scripts/fork/build-pwa-icons.mjs`;
+  - `components/pwa/pwa-support.tsx`: registration, update prompt, install button / iOS hint, offline banner;
+  - `tests/pwa.test.ts`.
+- `app/layout.tsx`: `appleWebApp`, the Apple icon, `themeColor` and the `PwaSupport` mount.
+- Verified:
+  - `pwa` 9/9: the real `sw.js` in a sandbox caches only `/_next/static`, fonts, icons and the offline page, never pages or `/api`; it deletes old versions and waits for "Reload".
+  - smoke-mobile in real Chrome: manifest served, worker active and controlling, offline banner, the offline page when the server is really stopped, cache contents static-only, no worker in the Electron window.
+
+## Phase 5 — Session sync ✅ (shipped with Phase 3)
+- `use-remote-stream-recovery.ts` re-attaches through the existing `turnInFlight` + stream replay. It is read-only and never resends.
+- `use-remote-composer-draft.ts` keeps unconfirmed text, and phone images are cleared only on acceptance.
+- No new contracts and no new concurrency system: server locks and 409 answers are used as they are.
+
+## Phase 6–7 — Hardening, upstream sync, CI ✅
+- `docs/UPSTREAM_SYNC.md`.
+- `scripts/fork/upstream-audit.mjs` + `upstream-touchpoints.json`. It is read-only and finds fork-modified upstream files from git itself. `tests/upstream-audit.test.ts` (2/2) runs it on a scratch repo with a real conflict, a new route and dependency changes.
+- `.github/workflows/fork-remote-access.yml`, a new file:
+  - fork tests and the upstream tests the fork changed, on ubuntu, windows and macos;
+  - the phone smoke test in real Chrome on ubuntu.
+
+  It has not run on GitHub yet; nothing was pushed.
+- `start.bat` (`npm run dev`, arguments passed on), tested in its own window, plus the README note.
+
+### Final verification (all phases, Node 26.13.1, Windows 11)
+| Check | Result |
+|---|---|
+| Full test suite | **5603 tests: 5530 pass, 62 fail = exactly the baseline set** (no new failure), 11 skipped |
+| Fork tests | remote-access 61, mobile-support 15, pwa 9, upstream-audit 2: all pass |
+| Typecheck | 0 errors |
+| Lint | 0 errors, the 1 existing warning |
+| `npm run build`, `build-server`, upstream `smoke-server` | pass |
+| `smoke-mobile` (real Chrome, 5 sizes + Electron agent + server stopped) | **90/90 checks** |
+| Real Next runtime gate probe (curl, desktop mode) | as expected (Phase 2 table above) |
+| `start.bat` in its own window | serves `/`, the manifest and `sw.js`; stopped cleanly |
+
 ## Remaining issues / risks
 - **Real-machine check pending owner approval.** It covers what Host / X-Forwarded-* / identity headers Serve 1.104.5 really sends, enable/disable on the real tailnet, and pairing a browser through the ts.net URL. It runs with an isolated profile (`--user-data-dir`), because this PC also has a real LearnHarness install.
 - **Stale Serve entry after a crash** until the next launch (documented in the security doc).

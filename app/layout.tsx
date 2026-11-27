@@ -7,6 +7,7 @@ import "./globals.css";
 import "./mobile.css";
 import { MobileShell } from "@/components/mobile/mobile-shell";
 import { MARK_BROWSER_SCRIPT } from "@/components/mobile/browser-mode";
+import { PwaSupport } from "@/components/pwa/pwa-support";
 import { AppShell, SidebarProvider } from "@/components/sidebar";
 import { ActivityProvider } from "@/components/activity-dock";
 import { ServerEventsProvider } from "@/components/server-events";
@@ -23,11 +24,17 @@ const prose = Source_Sans_3({ subsets: ["latin"], variable: "--font-sans3" });
 export const metadata: Metadata = {
 	title: "Learning Harness",
 	description: "A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
+	// Fork: installable PWA (app/manifest.ts adds the manifest link itself).
+	appleWebApp: { capable: true, title: "LearnHarness", statusBarStyle: "black-translucent" },
+	icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 // Fork: edge-to-edge on phones (safe areas in mobile.css); the keyboard
 // shrinks the layout so the composer stays above it. Ignored by desktop windows.
-export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content" };
+export const viewport: Viewport = {
+	width: "device-width", initialScale: 1, viewportFit: "cover", interactiveWidget: "resizes-content",
+	themeColor: [{ media: "(prefers-color-scheme: dark)", color: "#141414" }, { media: "(prefers-color-scheme: light)", color: "#ffffff" }],
+};
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
 	// The theme is server-rendered — its class AND its color variables —
@@ -53,7 +60,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 					<AppearanceProvider initialAppearance={appearance} initialTheme={theme}>
 						<SidebarProvider>
 							<ActivityProvider>
-								<AppShell>{children}<MobileShell /></AppShell>
+								<AppShell>{children}<MobileShell /><PwaSupport /></AppShell>
 							</ActivityProvider>
 						</SidebarProvider>
 					</AppearanceProvider>
