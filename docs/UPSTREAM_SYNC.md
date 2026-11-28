@@ -65,7 +65,8 @@ Never rebase or force-push a branch that is already on GitHub. Bring upstream in
 5. **New API routes:** `tests/remote-access-route-coverage.test.ts` fails until each new route and method is listed in `src/remote-access/route-policy.ts`. Until then the gate already refuses it for phones (deny by default). Decide per route: a learning feature → `"remote"`; credentials, provider, global settings or machine control → `"local-only"`.
 6. **Run the compatibility checks** (below). Compare failures with [BASELINE_TEST_RESULTS.md](BASELINE_TEST_RESULTS.md).
 7. **Review, then merge** `upstream-sync` into `main` with `--no-ff`. Push only when you decide to.
-8. If a fork hook is no longer needed (upstream gained an extension point), remove it and update UPSTREAM_MODIFICATIONS.md.
+8. If the merge changed `package.json`'s version, the next fork release starts again at `-mobile.1` on the new base (`v<new version>-mobile.1`, see FORK_RELEASE.md). Keep the `if:` guard on upstream's `release.yml`.
+9. If a fork hook is no longer needed (upstream gained an extension point), remove it and update UPSTREAM_MODIFICATIONS.md.
 
 ## Compatibility checks after every upstream merge
 

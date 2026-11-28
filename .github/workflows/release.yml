@@ -21,6 +21,9 @@ env:
 jobs:
   quality:
     name: Release gates
+    # Fork: only upstream releases from here (signing secrets, publish target);
+    # the fork's Windows release is fork-release.yml (docs/UPSTREAM_MODIFICATIONS.md).
+    if: github.repository == 'amosblomqvist/learnharness'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

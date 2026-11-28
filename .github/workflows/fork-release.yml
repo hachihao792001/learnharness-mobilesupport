@@ -1,0 +1,142 @@
+# Fork: Windows release of this fork (docs/FORK_RELEASE.md).
+# A separate file from upstream's release.yml, which only runs in
+# amosblomqvist/learnharness (it needs Apple signing secrets and publishes
+# there).
+#
+# - Push a tag like v0.7.0-mobile.1 → build, test, and a DRAFT release with
+#   the installer and update feed. A human publishes it.
+# - Run it by hand (Actions → Fork Windows release → Run workflow) → a
+#   rehearsal: same build and checks, artifact only, no release.
+name: Fork Windows release
+
+on:
+  push:
+    tags: ["v*-mobile.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fork-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  quality:
+    name: Release gates
+    if: github.repository == 'hachihao792001/learnharness-mobilesupport'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run plugins:setup
+      - name: Release version (from the tag, or a rehearsal version)
+        id: version
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            version=$(node scripts/fork/fork-release.mjs version "$GITHUB_REF_NAME")
+          else
+            version=$(node scripts/fork/fork-release.mjs rehearsal)
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Release version: $version"
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run lint
+
+  windows:
+    name: Build Windows installer
+    needs: quality
+    runs-on: windows-2025
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.quality.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+          cache: npm
+      - run: npm ci
+      - run: npm run plugins:setup
+      - name: Point the update feed at this fork (this checkout only)
+        run: node scripts/fork/fork-release.mjs stamp
+      - name: Native renderer tests on this OS
+        run: npx electron --import tsx --test tests/pdf-native-render.test.ts tests/pdf-ops.test.ts tests/svg-native-render.test.ts tests/browser-service.test.ts
+        env:
+          NODE_ENV: test
+          ELECTRON_RUN_AS_NODE: "1"
+      - run: npm run build
+      - run: node scripts/smoke-provider-runtime.mjs
+      - run: node scripts/build-server.mjs
+      - run: node scripts/smoke-server.mjs --electron
+      # The app and server were built with upstream's x.y.z (plugins require it);
+      # only the package gets the fork version, for the installer and updates.
+      - name: Package (unsigned NSIS installer + latest.yml)
+        run: npx electron-builder --win --x64 --publish never "-c.extraMetadata.version=$VERSION"
+      - name: Check the installer, update feed and update source
+        run: node scripts/fork/fork-release.mjs verify "$VERSION"
+      - name: Initialize packaged providers offline (host and packaged Electron Node)
+        run: |
+          node scripts/smoke-provider-runtime.mjs --standalone dist/win-unpacked/resources/server/standalone
+          node scripts/smoke-provider-runtime.mjs --standalone dist/win-unpacked/resources/server/standalone --runtime dist/win-unpacked/LearnHarness.exe
+      - name: Exercise packaged demo runtime (own Electron, no system Chrome)
+        run: node scripts/smoke-demo-runtime.mjs --standalone dist/win-unpacked/resources/server/standalone --runtime dist/win-unpacked/LearnHarness.exe --browser
+      - name: Release notes
+        run: node scripts/fork/fork-release.mjs notes "$VERSION" > dist/release-notes.md
+      - uses: actions/upload-artifact@v7
+        with:
+          name: learnharness-windows-${{ env.VERSION }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            dist/*-setup.exe
+            dist/*-setup.exe.blockmap
+            dist/latest.yml
+            dist/release-notes.md
+
+  release:
+    name: Draft release
+    needs: [quality, windows]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.quality.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: learnharness-windows-${{ env.VERSION }}
+          path: out
+      - name: Create the draft (refuses to touch a published release)
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft > existing.txt 2>/dev/null; then
+            if [ "$(cat existing.txt)" != "true" ]; then
+              echo "::error::$tag is already published; refusing to change it."
+              exit 1
+            fi
+            gh release upload "$tag" out/*-setup.exe out/*-setup.exe.blockmap out/latest.yml --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" out/*-setup.exe out/*-setup.exe.blockmap out/latest.yml \
+              --repo "$GITHUB_REPOSITORY" --draft --verify-tag \
+              --title "LearnHarness Mobile $VERSION" --notes-file out/release-notes.md
+          fi
+          echo "Draft ready: review it on the Releases page, then publish."

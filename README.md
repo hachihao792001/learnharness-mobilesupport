@@ -86,6 +86,8 @@ Security vulnerabilities: report privately as described in [SECURITY.md](SECURIT
 
 ## This fork: phone access
 
+**Download (Windows):** the installer is on the [Releases page](https://github.com/hachihao792001/learnharness-mobilesupport/releases). Windows warns that it is not code-signed: click *More info → Run anyway*. It replaces an installed official LearnHarness and keeps your data. Releasing: [docs/FORK_RELEASE.md](docs/FORK_RELEASE.md).
+
 This fork adds private access from your phone over Tailscale, a phone layout and an installable app; see [docs/MOBILE_PWA.md](docs/MOBILE_PWA.md) and [docs/REMOTE_ACCESS_ARCHITECTURE.md](docs/REMOTE_ACCESS_ARCHITECTURE.md). On Windows, double-click `start.bat` to run the development server (`npm run dev`; arguments are passed on, e.g. `start.bat --port 3001`). Upstream syncing: [docs/UPSTREAM_SYNC.md](docs/UPSTREAM_SYNC.md).
 
 ## License

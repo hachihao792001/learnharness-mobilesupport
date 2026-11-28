@@ -22,6 +22,7 @@ Search tip: every fork hunk in an upstream file is marked with a `Fork:` comment
 | `tests/plugin-document-proxy.test.ts` | 2 | +1, 1 changed | Matcher now includes non-API paths (assertion updated) |
 | `app/layout.tsx` | 3–4 | +17, 2 changed | Phone stylesheet, viewport + theme colour, pre-paint browser mark, `MobileShell` and `PwaSupport` mounts, Apple web-app metadata |
 | `README.md` | 7 | +7 | "Use at your own risk" warning at the top; short "This fork" section (links, `start.bat`). Conflicts only if upstream edits the first or last lines |
+| `.github/workflows/release.yml` | release | +3 | Runs only in `amosblomqvist/learnharness` (`if:` on its first job; the others depend on it). In the fork a `v*-mobile.*` tag would otherwise start upstream's macOS-signed release, which publishes to upstream. The fork releases with `fork-release.yml` |
 | `components/chat.tsx` | 3/5 | +8, 2 changed | Remote-only hooks: draft saving, phone images, re-attach after reconnect |
 | `components/composer.tsx` | 3 | +8, 2 changed | Phone image button in a remote browser's session composer |
 
@@ -115,7 +116,7 @@ Search tip: every fork hunk in an upstream file is marked with a `Fork:` comment
 - `scripts/fork/seed-mobile-fixture.ts`, `scripts/fork/smoke-mobile.mjs`, `scripts/fork/build-pwa-icons.mjs`, `scripts/fork/upstream-audit.mjs`, `scripts/fork/upstream-touchpoints.json`
 - `app/manifest.ts`, `components/pwa/*`, `public/sw.js`, `public/offline.html`, `public/icons/*`
 - `tests/pwa.test.ts`, `tests/upstream-audit.test.ts`
-- `.github/workflows/fork-remote-access.yml` (a separate file, so `ci.yml` stays upstream's)
+- `.github/workflows/fork-remote-access.yml` (a separate file, so `ci.yml` stays upstream's), `.github/workflows/fork-release.yml`, `scripts/fork/fork-release.mjs`, `tests/fork-release.test.ts`, `docs/FORK_RELEASE.md`
 - `start.bat`
 - `docs/MOBILE_PWA.md`, `docs/UPSTREAM_SYNC.md`
 - `docs/FORK_ARCHITECTURE.md`, `docs/UPSTREAM_MODIFICATIONS.md`, `docs/BASELINE_TEST_RESULTS.md`, `docs/REMOTE_ACCESS_*.md`

@@ -51,7 +51,7 @@ jobs:
           SKIP=()
           if [ "$RUNNER_OS" = "Windows" ]; then SKIP=(--test-skip-pattern "constructs light native chrome before renderer reporting"); fi
           node --import tsx --test "${SKIP[@]}" \
-            "tests/remote-access-*.test.ts" tests/mobile-support.test.tsx tests/pwa.test.ts tests/upstream-audit.test.ts \
+            "tests/remote-access-*.test.ts" tests/mobile-support.test.tsx tests/pwa.test.ts tests/upstream-audit.test.ts tests/fork-release.test.ts \
             tests/desktop-api.test.ts tests/desktop-platform.test.ts tests/file-path-preload.test.ts \
             tests/plugin-document-proxy.test.ts tests/browser-api-access.test.ts tests/desktop-dev-startup.test.ts
 
